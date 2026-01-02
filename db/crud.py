@@ -77,3 +77,61 @@ def get_categories():
     cur.close()
     conn.close()
     return categories
+
+
+## CRUD for savings goals
+
+# Add savings goals
+def add_savings_goal(goal_name, target_amount, start_date, target_date):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    query = """
+    INSERT INTO savings_goals (goal_name, target_amount, start_date, target_date)
+    VALUES (%s, %s, %s, %s)
+    """
+    cur.execute(query, (goal_name, target_amount, start_date, target_date))
+    conn.commit()
+    
+    cur.close()
+    conn.close()
+
+# Get savings goal
+def get_savings_goals():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    query = """
+        SELECT
+            id,
+            goal_name,
+            target_amount,
+            current_amount,
+            start_date,
+            target_date
+        FROM savings_goals
+        ORDER BY created_at DESC
+    """
+    cur.execute(query)
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+    return rows
+
+# Update savings goal
+def update_savings_amount(goal_id, amount):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    query = """
+        UPDATE savings_goals
+        SET current_amount = current_amount + %s
+        WHERE id = %s
+    """
+    cur.execute(query, (amount, goal_id))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
