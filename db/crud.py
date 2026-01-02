@@ -19,7 +19,7 @@ def add_transaction(date, amount, tx_type, category_id, description):
 # Read all transactions
 def get_transactions():
     conn = get_connection()
-    cur = con.cursor()
+    cur = conn.cursor()
 
     query = """
     SELECT
@@ -72,7 +72,7 @@ def delete_transaction(tx_id):
 def get_categories():
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id, name, FROM categories ORBER BY name")
+    cur.execute("SELECT id, name FROM categories ORDER BY name")
     categories = cur.fetchall()
     cur.close()
     conn.close()
