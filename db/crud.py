@@ -3,7 +3,7 @@ from db.database import get_connection
 # Create a function to add a transaction
 def add_transaction(date, amount, tx_type, category_id, description):
     conn = get_connection()
-    cur = con.cursor()
+    cur = conn.cursor()
 
     query = """
     INSERT INTO transactions (date, amount, type, category_id, description)
@@ -120,18 +120,37 @@ def get_savings_goals():
     return rows
 
 # Update savings goal
-def update_savings_amount(goal_id, amount):
+def update_savings_goal(goal_id, goal_name, target_amount, start_date, target_date):
     conn = get_connection()
     cur = conn.cursor()
 
     query = """
         UPDATE savings_goals
-        SET current_amount = current_amount + %s
+        SET goal_name = %s,
+            target_amount = %s,
+            start_date = %s,
+            target_date = %s
         WHERE id = %s
     """
-    cur.execute(query, (amount, goal_id))
+    cur.execute(
+        query,
+        (goal_name, target_amount, start_date, target_date, goal_id)
+    )
 
     conn.commit()
     cur.close()
     conn.close()
+
+# Delete savings goal
+def delete_savings_goal(goal_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("DELETE FROM savings_goals WHERE id = %s", (goal_id,))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 
