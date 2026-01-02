@@ -1,4 +1,4 @@
-from df.database import get_connection
+from db.database import get_connection
 
 # Create a function to add a transaction
 def add_transaction(date, amount, tx_type, category_id, description):
