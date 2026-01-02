@@ -55,7 +55,30 @@ df = pd.DataFrame(
 
 st.dataframe(df, use_container_width="stretch")
 
+# Delete transaction
+st.subheader("🗑 Delete Transaction")
 
+tx_ids = df["ID"].tolist()
+
+selected_id = st.selectbox("Select Transaction ID", tx_ids)
+
+if st.button("Delete"):
+    delete_transaction(selected_id)
+    st.success("Transaction deleted!")
+    st.rerun()
+
+# Monthly Summary
+st.subheader("📅 Monthly Summary")
+
+income = df[df["Type"] == "income"]["Amount"].sum()
+expense = df[df["Type"] == "expense"]["Amount"].sum()
+balance = income - expense
+
+col1, col2, col3 = st.columns(3)
+
+col1.metric("Total Income", f"RM {income:.2f}")
+col2.metric("Total Expense", f"RM {expense:.2f}")
+col3.metric("Balance", f"RM {balance:.2f}")
 
 
 
