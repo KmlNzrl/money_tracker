@@ -3,6 +3,7 @@ CREATE TABLE transactions (
     id SERIAL PRIMARY KEY,
     date DATE NOT NULL,
     amount NUMERIC(10, 2) NOT NULL,
+    savings_goal_id INT,
     type VARCHAR(10) CHECK (type IN ('Income', 'Expense')) NOT NULL,
     category_id INT NOT NULL,
     description TEXT,
@@ -19,6 +20,13 @@ CREATE TABLE savings_goals (
     target_date DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+# Add foreign key constraint 
+ALTER TABLE transactions
+ADD CONSTRAINT fk_savings_goal
+FOREIGN KEY (savings_goal_id)
+REFERENCES savings_goals(id)
+ON DELETE SET NULL;
 
 # Create a table for categories
 CREATE TABLE categories (

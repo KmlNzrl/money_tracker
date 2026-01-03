@@ -2,18 +2,18 @@ import streamlit as st
 import pandas as pd
 
 from db.crud import add_transaction, get_transactions, delete_transaction, get_categories
-from db.crud import add_savings_goal, get_savings_goals, update_savings_goal, delete_savings_goal, get_savings_total
+from db.crud import add_savings_goal, get_savings_goals, update_savings_goal, delete_savings_goal, get_savings_total, get_savings_total_by_goal
 
 # Set page config
 st.set_page_config(page_title="Money Tracker", layout="wide")
 
-# st.title("💰PERSONEL MONEY TRACKER 💰", "center")
 st.markdown("<h1 style='text-align: center; color: white;'>💰PERSONEL MONEY TRACKER 💰</h1>", unsafe_allow_html=True)
-# st.write("Track your income, expenses, and savings easily.")
+
 
 # Load categories
 categories = get_categories()
 category_dict = {name: cid for cid, name in categories}
+savings_goal_dict = {row[1]: row[0] for row in get_savings_goals()}
 
 # Add transaction form
 st.subheader("➕ Add New Transaction")
@@ -30,15 +30,20 @@ with st.form("add_transaction_form"):
         category = st.selectbox("Category", category_dict.keys())
 
     with col3:
+        savings_goal = st.selectbox("Savings Goal", ["None"] + [g[1] for g in get_savings_goals()])
         description = st.text_input("Description")
 
     submitted = st.form_submit_button("Add Transaction")
 
     if submitted:
+        # Handle "None" selection for savings goal
+        selected_goal_id = savings_goal_dict[savings_goal] if savings_goal != "None" else None
+        
         add_transaction(
             date=date,
             amount=amount,
             tx_type=tx_type,
+            savings_goal_id=selected_goal_id,
             category_id=category_dict[category],
             description=description
         )
@@ -50,7 +55,7 @@ st.subheader("📋 Transactions")
 rows = get_transactions()
 df = pd.DataFrame(
     rows,
-    columns=["ID", "Date", "Amount", "Type", "Category", "Description"]
+    columns=["ID", "Date", "Amount", "Type", "Savings Goal", "Category", "Description"]
 )
 st.dataframe(df, use_container_width="stretch")
 
@@ -105,76 +110,51 @@ with st.form("add_savings_goal_form"):
 
 # Display savings goals and progress bar
 goals = get_savings_goals()
-total_savings = float(get_savings_total())
+
 for goal in goals:
     goal_id, name, target, current, start, end = goal
-    current_f = total_savings
+    saved_f = float(get_savings_total_by_goal(goal_id))
     target_f = float(target)
-    progress = min(current_f / target_f, 1.0) if target_f > 0 else 0
+    
+    progress = min(saved_f / target_f, 1.0) if target_f > 0 else 0
+
     with st.expander(f"💰 {name}", expanded=False):
 
         col1, col2, col3 = st.columns(3)
         col1.write(f"🎯 Target: RM {target:.2f}")
-        col2.write(f"💰 Saved: RM {current_f:.2f}")
+        col2.write(f"💰 Saved: RM {saved_f:.2f}")
         col3.write(f"📅 {start} → {end}")
 
         st.progress(progress)
-        st.caption(f"Remaining: RM {target_f - current_f:.2f}")
+        st.caption(f"Remaining: RM {target_f - saved_f:.2f}")
 
-        st.markdown("### ✏️ Edit Goal")
+        # 🔽 ADD MONEY SECTION (CORRECT PLACE)
+        st.markdown("### 💵 Add Money to This Goal")
 
-        with st.form(f"edit_goal_{goal_id}"):
-            new_name = st.text_input("Goal Name", value=name)
-            new_target = st.number_input(
-                "Target Amount (RM)",
+        with st.form(f"add_money_{goal_id}"):
+
+            save_amount = st.number_input(
+                "Amount (RM)",
                 min_value=0.0,
-                value=float(target),
-                format="%.2f"
+                format="%.2f",
+                key=f"amount_{goal_id}"
             )
-            new_start = st.date_input("Start Date", value=start)
-            new_end = st.date_input("Target Date", value=end)
 
-            if st.form_submit_button("Update Goal"):
-                update_savings_goal(
-                    goal_id,
-                    new_name,
-                    new_target,
-                    new_start,
-                    new_end
+            note = st.text_input(
+                "Description",
+                value=f"Savings for {name}",
+                key=f"note_{goal_id}"
+            )
+
+            if st.form_submit_button("Add to Savings"):
+                add_transaction(
+                    date=pd.Timestamp.today().date(),
+                    amount=save_amount,
+                    tx_type="Expense",
+                    savings_goal_id=goal_id,
+                    category_id=category_dict["Savings"],
+                    description=note
                 )
-                st.success("Goal updated successfully!")
+                st.success("Money added to savings!")
                 st.rerun()
-
-        st.markdown("### 🗑 Delete Goal")
-
-        if st.button("Delete Goal", key=f"delete_{goal_id}"):
-            delete_savings_goal(goal_id)
-            st.warning("Goal deleted!")
-            st.rerun()
-
-st.subheader("💵 Add Money to Savings")
-with st.form("add_savings_transaction"):
-    savings_amount = st.number_input(
-        "Savings Amount (RM)",
-        min_value=0.0,
-        format="%.2f"
-    )
-
-    savings_note = st.text_input(
-        "Description",
-        value="Monthly savings"
-    )
-
-    submitted = st.form_submit_button("Save Money")
-
-    if submitted:
-        add_transaction(
-            date=pd.Timestamp.today().date(),
-            amount=savings_amount,
-            tx_type="Expense",
-            category_id=category_dict["Savings"],
-            description=savings_note
-        )
-        st.success("Savings added successfully! 💰")
-        st.rerun()
 

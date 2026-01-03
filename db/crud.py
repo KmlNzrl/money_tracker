@@ -1,16 +1,16 @@
 from db.database import get_connection
 
 # Create a function to add a transaction
-def add_transaction(date, amount, tx_type, category_id, description):
+def add_transaction(date, amount, tx_type, category_id, description, savings_goal_id=None):
     conn = get_connection()
     cur = conn.cursor()
 
     query = """
-    INSERT INTO transactions (date, amount, type, category_id, description)
-    VALUES (%s, %s, %s, %s, %s)
+    INSERT INTO transactions (date, amount, type, savings_goal_id, category_id, description)
+    VALUES (%s, %s, %s, %s, %s, %s)
     """
     
-    cur.execute(query, (date, amount, tx_type, category_id, description))
+    cur.execute(query, (date, amount, tx_type, savings_goal_id, category_id, description))
     conn.commit()
     
     cur.close()
@@ -27,6 +27,7 @@ def get_transactions():
     t.date,
     t.amount,
     t.type,
+    t.savings_goal_id,
     c.name as category,
     t.description
     FROM transactions t
@@ -164,6 +165,23 @@ def get_savings_total():
         AND t.type = 'Expense'
     """
     cur.execute(query)
+    total = cur.fetchone()[0]
+
+    cur.close()
+    conn.close()
+    return total
+
+def get_savings_total_by_goal(goal_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    query = """
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE savings_goal_id = %s
+        AND type = 'Expense'
+    """
+    cur.execute(query, (goal_id,))
     total = cur.fetchone()[0]
 
     cur.close()
