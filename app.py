@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 from db.crud import add_transaction, get_transactions, delete_transaction, get_categories
-from db.crud import add_savings_goal, get_savings_goals, update_savings_goal, delete_savings_goal
+from db.crud import add_savings_goal, get_savings_goals, update_savings_goal, delete_savings_goal, get_savings_total
 
 # Set page config
 st.set_page_config(page_title="Money Tracker", layout="wide")
@@ -47,21 +47,16 @@ with st.form("add_transaction_form"):
 
 # Display transactions table
 st.subheader("📋 Transactions")
-
 rows = get_transactions()
-
 df = pd.DataFrame(
     rows,
     columns=["ID", "Date", "Amount", "Type", "Category", "Description"]
 )
-
 st.dataframe(df, use_container_width="stretch")
 
 # Delete transaction
 st.subheader("🗑 Delete Transaction")
-
 tx_ids = df["ID"].tolist()
-
 selected_id = st.selectbox("Select Transaction ID", tx_ids)
 
 if st.button("Delete"):
@@ -71,13 +66,11 @@ if st.button("Delete"):
 
 # Monthly Summary
 st.subheader("📅 Monthly Summary")
-
 income = df[df["Type"] == "Income"]["Amount"].sum()
 expense = df[df["Type"] == "Expense"]["Amount"].sum()
 balance = income - expense
 
 col1, col2, col3 = st.columns(3)
-
 col1.metric("Total Income", f"RM {income:.2f}")
 col2.metric("Total Expense", f"RM {expense:.2f}")
 col3.metric("Balance", f"RM {balance:.2f}")
@@ -86,7 +79,6 @@ col3.metric("Balance", f"RM {balance:.2f}")
 st.subheader("🎯 Add New Savings Goal")
 with st.form("add_savings_goal_form"):
     col1, col2 = st.columns(2)
-
     with col1:
         goal_name = st.text_input("Goal Name (e.g. Emergency Fund)")
         target_amount = st.number_input(
@@ -112,23 +104,22 @@ with st.form("add_savings_goal_form"):
         st.rerun()
 
 # Display savings goals and progress bar
-
 goals = get_savings_goals()
-
+total_savings = float(get_savings_total())
 for goal in goals:
     goal_id, name, target, current, start, end = goal
-
-    progress = min(current / target, 1.0) if target > 0 else 0
-
+    current_f = total_savings
+    target_f = float(target)
+    progress = min(current_f / target_f, 1.0) if target_f > 0 else 0
     with st.expander(f"💰 {name}", expanded=False):
 
         col1, col2, col3 = st.columns(3)
         col1.write(f"🎯 Target: RM {target:.2f}")
-        col2.write(f"💰 Saved: RM {current:.2f}")
+        col2.write(f"💰 Saved: RM {current_f:.2f}")
         col3.write(f"📅 {start} → {end}")
 
         st.progress(progress)
-        st.caption(f"Remaining: RM {target - current:.2f}")
+        st.caption(f"Remaining: RM {target_f - current_f:.2f}")
 
         st.markdown("### ✏️ Edit Goal")
 
@@ -160,3 +151,30 @@ for goal in goals:
             delete_savings_goal(goal_id)
             st.warning("Goal deleted!")
             st.rerun()
+
+st.subheader("💵 Add Money to Savings")
+with st.form("add_savings_transaction"):
+    savings_amount = st.number_input(
+        "Savings Amount (RM)",
+        min_value=0.0,
+        format="%.2f"
+    )
+
+    savings_note = st.text_input(
+        "Description",
+        value="Monthly savings"
+    )
+
+    submitted = st.form_submit_button("Save Money")
+
+    if submitted:
+        add_transaction(
+            date=pd.Timestamp.today().date(),
+            amount=savings_amount,
+            tx_type="Expense",
+            category_id=category_dict["Savings"],
+            description=savings_note
+        )
+        st.success("Savings added successfully! 💰")
+        st.rerun()
+

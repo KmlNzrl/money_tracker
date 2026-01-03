@@ -152,5 +152,22 @@ def delete_savings_goal(goal_id):
     cur.close()
     conn.close()
 
+def get_savings_total():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    query = """
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions t
+        JOIN categories c ON t.category_id = c.id
+        WHERE c.name = 'Savings'
+        AND t.type = 'Expense'
+    """
+    cur.execute(query)
+    total = cur.fetchone()[0]
+
+    cur.close()
+    conn.close()
+    return total
 
 
