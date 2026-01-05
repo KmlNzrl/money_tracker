@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+from datetime import date
+import math
 
 from db.crud import add_transaction, get_transactions, delete_transaction, get_categories
 from db.crud import add_savings_goal, get_savings_goals, update_savings_goal, delete_savings_goal, get_savings_total, get_savings_total_by_goal
@@ -115,7 +117,26 @@ for goal in goals:
     goal_id, name, target, current, start, end = goal
     saved_f = float(get_savings_total_by_goal(goal_id))
     target_f = float(target)
+
+    # Planned monthly savings, start -> end
+    total_days = (end - start).days
+    total_months = max(math.ceil(total_days / 30),1)
+    planned_monthly = target_f / total_months
     
+    # Required monthly savings, now -> end
+    today = date.today()
+    remaining_amount = max(target_f - saved_f, 0)
+    if end > today:
+        remaining_days = (end - today).days
+        remaining_months = max(math.ceil(remaining_days / 30),1)
+    else:
+        remaining_months = 0
+    required_monthly = (
+        remaining_amount / remaining_months
+        if remaining_months > 0
+        else 0
+    )
+
     progress = min(saved_f / target_f, 1.0) if target_f > 0 else 0
 
     with st.expander(f"💰 {name}", expanded=False):
@@ -126,6 +147,23 @@ for goal in goals:
         col3.write(f"📅 {start} → {end}")
 
         st.progress(progress)
+        col1, col2, col3 = st.columns(3)
+
+        col1.metric(
+            "📆 Total Duration",
+            f"{total_months} months"
+        )
+
+        col2.metric(
+            "🗓 Planned / Month",
+            f"RM {planned_monthly:.2f}"
+        )
+
+        col3.metric(
+            "⚠️ Required Now / Month",
+            f"RM {required_monthly:.2f}"
+        )
+
         st.caption(f"Remaining: RM {target_f - saved_f:.2f}")
 
         # 🔽 ADD MONEY SECTION (CORRECT PLACE)
@@ -157,4 +195,53 @@ for goal in goals:
                 )
                 st.success("Money added to savings!")
                 st.rerun()
+        st.markdown("### ✏️ Edit Savings Goal")
+
+        with st.form(f"edit_goal_{goal_id}"):
+
+            new_name = st.text_input(
+                "Goal Name",
+                value=name,
+                key=f"name_{goal_id}"
+            )
+
+            new_target = st.number_input(
+                "Target Amount (RM)",
+                min_value=0.0,
+                value=float(target_f),
+                format="%.2f",
+                key=f"target_{goal_id}"
+            )
+
+            new_start = st.date_input(
+                "Start Date",
+                value=start,
+                key=f"start_{goal_id}"
+            )
+
+            new_end = st.date_input(
+                "Target Date",
+                value=end,
+                key=f"end_{goal_id}"
+            )
+
+            if st.form_submit_button("Update Goal"):
+                update_savings_goal(
+                    goal_id,
+                    new_name,
+                    new_target,
+                    new_start,
+                    new_end
+                )
+                st.success("Savings goal updated!")
+                st.rerun()
+
+        st.markdown("### 🗑 Delete Savings Goal")
+
+        if st.button("Delete Goal", key=f"delete_{goal_id}"):
+            delete_savings_goal(goal_id)
+            st.warning("Savings goal deleted!")
+            st.rerun()
+
+
 
