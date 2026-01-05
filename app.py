@@ -1,21 +1,84 @@
+
 import streamlit as st
 import pandas as pd
 from datetime import date
 import math
 
-from db.crud import add_transaction, get_transactions, delete_transaction, get_categories
-from db.crud import add_savings_goal, get_savings_goals, update_savings_goal, delete_savings_goal, get_savings_total, get_savings_total_by_goal
-
-# Set page config
+# Set page config immediately after imports
 st.set_page_config(page_title="Money Tracker", layout="wide")
 
-st.markdown("<h1 style='text-align: center; color: white;'>💰PERSONEL MONEY TRACKER 💰</h1>", unsafe_allow_html=True)
+from db.crud import add_transaction, get_transactions, delete_transaction, get_categories
+from db.crud import add_savings_goal, get_savings_goals, update_savings_goal, delete_savings_goal, get_savings_total, get_savings_total_by_goal
+from db.auth import authenticate_user, create_user
 
+# -----------------------------
+# SESSION STATE INIT
+# -----------------------------
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+if "user_email" not in st.session_state:
+    st.session_state.user_email = None
+
+# -----------------------------
+# SIDEBAR (Logout & User Info)
+# -----------------------------
+with st.sidebar:
+    if st.session_state.user_id:
+        if st.session_state.user_email:
+            st.write(f"👤 **{st.session_state.user_email}**")
+        else:
+            st.write("👤 **User**")
+        
+        if st.button("🚪 Logout"):
+            st.session_state.user_id = None
+            st.session_state.user_email = None
+            st.rerun()
+
+# -----------------------------
+# LOGIN / REGISTER FLOW
+# -----------------------------
+if st.session_state.user_id is None:
+    st.title("🔐 Login / Register")
+
+    tab1, tab2 = st.tabs(["Login", "Register"])
+
+    # ----- LOGIN -----
+    with tab1:
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Password", type="password", key="login_pass")
+        if st.button("Login"):
+            user_id = authenticate_user(email, password)
+            if user_id:
+                st.session_state.user_id = user_id
+                st.session_state.user_email = email
+                st.success("Login successful! Redirecting...")
+                st.rerun()
+            else:
+                st.error("Invalid email or password")
+
+    # ----- REGISTER -----
+    with tab2:
+        new_email = st.text_input("Email", key="reg_email")
+        new_password = st.text_input("Password", type="password", key="reg_pass")
+        if st.button("Register"):
+            create_user(new_email, new_password)
+            st.success("Account created! Please login.")
+
+    st.stop()  # Stop the rest of the app until login is successful
+
+# block access if not logged in (double check, though st.stop above handles it)
+if not st.session_state.user_id:
+    st.warning("Please log in first!")
+    st.stop()
+
+st.markdown("<h1 style='text-align: center; color: white;'>💰PERSONEL MONEY TRACKER 💰</h1>", unsafe_allow_html=True)
 
 # Load categories
 categories = get_categories()
 category_dict = {name: cid for cid, name in categories}
 savings_goal_dict = {row[1]: row[0] for row in get_savings_goals()}
+goals = get_savings_goals()
+savings_goal_dict = {g[1]: g[0] for g in goals}
 
 # Add transaction form
 st.subheader("➕ Add New Transaction")
@@ -111,8 +174,6 @@ with st.form("add_savings_goal_form"):
         st.rerun()
 
 # Display savings goals and progress bar
-goals = get_savings_goals()
-
 for goal in goals:
     goal_id, name, target, current, start, end = goal
     saved_f = float(get_savings_total_by_goal(goal_id))
@@ -165,6 +226,7 @@ for goal in goals:
         )
 
         st.caption(f"Remaining: RM {target_f - saved_f:.2f}")
+        st.caption(f"{progress * 100:.1f}% completed")
 
         # 🔽 ADD MONEY SECTION (CORRECT PLACE)
         st.markdown("### 💵 Add Money to This Goal")
@@ -196,7 +258,6 @@ for goal in goals:
                 st.success("Money added to savings!")
                 st.rerun()
         st.markdown("### ✏️ Edit Savings Goal")
-
         with st.form(f"edit_goal_{goal_id}"):
 
             new_name = st.text_input(
@@ -239,9 +300,13 @@ for goal in goals:
         st.markdown("### 🗑 Delete Savings Goal")
 
         if st.button("Delete Goal", key=f"delete_{goal_id}"):
-            delete_savings_goal(goal_id)
-            st.warning("Savings goal deleted!")
-            st.rerun()
+            if saved_f > 0:
+                st.warning("Cannot delete goal with existing savings.")
+            else:
+                delete_savings_goal(goal_id)
+                st.warning("Savings goal deleted!")
+                st.rerun()
+
 
 
 
